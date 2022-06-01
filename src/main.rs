@@ -15,6 +15,10 @@ pub extern "C" fn _start() -> ! {
     // safe write through dedicated interface
     println!("Hello World{}", "!");
 
+    rust_os::init();
+
+    // invoke a breakpoint exception
+    x86_64::instructions::interrupts::int3();
     // panic
     // panic!("Some panic message");
 
@@ -22,6 +26,7 @@ pub extern "C" fn _start() -> ! {
     #[cfg(test)]
     test_main();
 
+    println!("It did not crash!");
     loop {}
 }
 

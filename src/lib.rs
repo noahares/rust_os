@@ -7,10 +7,14 @@
 // new entry point for tests
 #![reexport_test_harness_main = "test_main"]
 
+// enable x86-interrupt
+#![feature(abi_x86_interrupt)]
+
 use core::panic::PanicInfo;
 
 pub mod serial;
 pub mod vga_buffer;
+pub mod interrupts;
 
 pub trait Testable {
     fn run(&self) -> ();
@@ -69,6 +73,7 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
 #[cfg(test)]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    init();
     test_main();
     loop {}
 }
@@ -77,4 +82,9 @@ pub extern "C" fn _start() -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     test_panic_handler(info)
+}
+
+// init interrupts
+pub fn init() {
+    interrupts::init_idt();
 }
