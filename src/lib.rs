@@ -7,14 +7,27 @@
 // new entry point for tests
 #![reexport_test_harness_main = "test_main"]
 
-// enable x86-interrupt
-#![feature(abi_x86_interrupt)]
+#![feature(abi_x86_interrupt)] // enable x86-interrupt
+#![feature(alloc_error_handler)]
+#![feature(const_mut_refs)]
 
 use core::panic::PanicInfo;
+
+#[cfg(test)]
+use bootloader::{entry_point, BootInfo};
+
+#[cfg(test)]
+entry_point!(test_kernel_main);
+
 
 pub mod serial;
 pub mod vga_buffer;
 pub mod interrupts;
+pub mod gdt;
+pub mod memory;
+pub mod allocator;
+
+extern crate alloc;
 
 pub trait Testable {
     fn run(&self) -> ();
@@ -66,16 +79,15 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     serial_println!("[failed]\n");
     serial_println!("Error: {}\n", info);
     exit_qemu(QemuExitCode::Failed);
-    loop {}
+    hlt_loop();
 }
 
 // Entry point for `cargo test`
 #[cfg(test)]
-#[no_mangle]
-pub extern "C" fn _start() -> ! {
+fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
     init();
     test_main();
-    loop {}
+    hlt_loop();
 }
 
 #[cfg(test)]
@@ -86,5 +98,20 @@ fn panic(info: &PanicInfo) -> ! {
 
 // init interrupts
 pub fn init() {
+    gdt::init();
     interrupts::init_idt();
+    unsafe { interrupts::PICS.lock().initialize() };
+    x86_64::instructions::interrupts::enable();
+}
+
+pub fn hlt_loop() -> ! {
+    loop {
+        x86_64::instructions::hlt();
+    }
+}
+
+
+#[alloc_error_handler]
+fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
+    panic!("allocation error: {:?}", layout)
 }
